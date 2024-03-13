@@ -16,6 +16,7 @@ import (
 	"github.com/mattfan00/jvbe/group"
 	"github.com/mattfan00/jvbe/template"
 	"github.com/mattfan00/jvbe/user"
+	"gopkg.in/mail.v2"
 
 	"github.com/alexedwards/scs/sqlite3store"
 	"github.com/alexedwards/scs/v2"
@@ -69,8 +70,9 @@ func (p *appProgram) run() error {
 	session.Lifetime = 30 * 24 * time.Hour // 30 days
 	session.Store = sqlite3store.New(db.DB.DB)
 
+	smtp := mail.NewDialer(conf.EmailServer, 587, conf.EmailSender, conf.EmailPass)
 	groupService := group.NewService(db)
-	eventService := event.NewService(db)
+	eventService := event.NewService(db, smtp)
 	userService := user.NewService(db)
 
 	authService, err := auth.NewService(conf)

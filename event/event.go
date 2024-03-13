@@ -42,6 +42,7 @@ type EventResponse struct {
 	AttendeeCount int       `db:"attendee_count"`
 	OnWaitlist    bool      `db:"on_waitlist"`
 	UserFullName  string    `db:"user_full_name"`
+	UserEmail     string    `db:"user_email"`
 }
 
 func (e EventResponse) PlusOnes() int {

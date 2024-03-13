@@ -11,15 +11,18 @@ import (
 	"github.com/jmoiron/sqlx"
 	gonanoid "github.com/matoous/go-nanoid/v2"
 	"github.com/mattfan00/jvbe/db"
+	"gopkg.in/mail.v2"
 )
 
 type service struct {
-	db *db.DB
+	db   *db.DB
+	smtp *mail.Dialer
 }
 
-func NewService(db *db.DB) *service {
+func NewService(db *db.DB, smtp *mail.Dialer) *service {
 	return &service{
-		db: db,
+		db:   db,
+		smtp: smtp,
 	}
 }
 
@@ -203,7 +206,7 @@ func (s *service) Delete(id string) error {
 
 type HandleResponseParams struct {
 	UserId        string
-	Id            string
+	Event         Event
 	AttendeeCount int
 }
 
@@ -216,13 +219,15 @@ func (s *service) HandleResponse(p HandleResponseParams) error {
 		return fmt.Errorf("maximum of %d plus one(s) allowed", MaxAttendeeCount-1)
 	}
 
+	offWaitlist := []EventResponse{}
+
 	tx, err := s.db.Beginx()
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback()
 
-	e, err := get(tx, p.Id)
+	e, err := get(tx, p.Event.Id)
 	if err != nil {
 		return err
 	}
@@ -231,7 +236,7 @@ func (s *service) HandleResponse(p HandleResponseParams) error {
 		return errors.New("cannot respond to past events")
 	}
 
-	existingResponse, err := getUserResponse(tx, p.Id, p.UserId)
+	existingResponse, err := getUserResponse(tx, p.Event.Id, p.UserId)
 	if err != nil {
 		return err
 	}
@@ -242,7 +247,7 @@ func (s *service) HandleResponse(p HandleResponseParams) error {
 	}
 
 	if p.AttendeeCount == 0 { // just delete the response, I don't think it really matters to keep it in DB
-		err := deleteResponse(tx, p.Id, p.UserId)
+		err := deleteResponse(tx, p.Event.Id, p.UserId)
 		if err != nil {
 			return err
 		}
@@ -255,7 +260,7 @@ func (s *service) HandleResponse(p HandleResponseParams) error {
 		}
 
 		err = updateResponse(tx, updateResponseParams{
-			EventId:       p.Id,
+			EventId:       p.Event.Id,
 			UserId:        p.UserId,
 			AttendeeCount: p.AttendeeCount,
 			OnWaitlist:    addToWaitlist,
@@ -270,12 +275,12 @@ func (s *service) HandleResponse(p HandleResponseParams) error {
 	// manage waitlist ugh
 	// only need to manage it if the event had no spots left and spots freed up from main attendee list
 	if e.SpotsLeft() == 0 && attendeeCountDelta < 0 && fromAttendee {
-		waitlist, err := listWaitlist(tx, p.Id, attendeeCountDelta*-1)
+		offWaitlist, err = listWaitlist(tx, p.Event.Id, attendeeCountDelta*-1)
 		if err != nil {
 			return err
 		}
 
-		err = updateWaitlist(tx, waitlist)
+		err = updateWaitlist(tx, offWaitlist)
 		if err != nil {
 			return err
 		}
@@ -285,6 +290,9 @@ func (s *service) HandleResponse(p HandleResponseParams) error {
 	if err != nil {
 		return err
 	}
+
+	// After transaction is committed, send emails to the users that got off waitlist
+	s.sendOffWaitlistMail(e, offWaitlist)
 
 	return nil
 }
@@ -420,7 +428,7 @@ func updateResponse(tx *sqlx.Tx, p updateResponseParams) error {
 
 func listWaitlist(tx *sqlx.Tx, eventId string, limit int) ([]EventResponse, error) {
 	stmt := `
-        SELECT er.event_id, er.user_id, er.on_waitlist
+        SELECT er.event_id, er.user_id, er.on_waitlist, u.full_name AS user_full_name, u.email AS user_email
         FROM event_response AS er
         INNER JOIN user AS u ON er.user_id = u.id
         WHERE er.event_id = ? AND er.on_waitlist = TRUE
@@ -456,4 +464,26 @@ func updateWaitlist(tx *sqlx.Tx, reqs []EventResponse) error {
 	}
 
 	return nil
+}
+
+func (s *service) sendOffWaitlistMail(event Event, users []EventResponse) {
+	email := mail.NewMessage()
+	email.SetHeader("From", s.smtp.Username)
+	email.SetHeader("Subject", fmt.Sprintf("You're going to JVBE Event: %s!", event.Name))
+
+	for _, r := range users {
+		if r.UserEmail != "" {
+			email.SetHeader("To", r.UserEmail)
+			email.SetBody("text/plain", fmt.Sprintf("Hi %s! You've been removed off the waitlist for the event %s. See you there!", r.UserFullName, event.Name))
+
+			// Send the email and continue to the next recipient if sending fails
+			log.Printf("Error sending email to %+v: %+v\n", r, event)
+			if err := s.smtp.DialAndSend(email); err != nil {
+				log.Printf("Error sending email to %+v: %v\n", r, err)
+				continue
+			}
+
+			log.Printf("Email sent successfully to %+v!\n", r)
+		}
+	}
 }

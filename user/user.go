@@ -35,6 +35,7 @@ type User struct {
 	ExternalId string     `db:"external_id"`
 	CreatedAt  time.Time  `db:"created_at"`
 	Status     UserStatus `db:"status"`
+	Email      string     `db:"email"`
 }
 
 func (u *User) ToSessionUser() SessionUser {

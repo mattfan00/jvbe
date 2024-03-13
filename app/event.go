@@ -260,7 +260,7 @@ func (a *App) respondEvent() http.HandlerFunc {
 
 		err = a.eventService.HandleResponse(event.HandleResponseParams{
 			UserId:        u.Id,
-			Id:            req.Id,
+			Event:         e,
 			AttendeeCount: req.AttendeeCount,
 		})
 		if err != nil {

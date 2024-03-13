@@ -15,10 +15,13 @@ type Oauth struct {
 }
 
 type Config struct {
-	DbConn  string `yaml:"db_conn"`
-	Port    int    `yaml:"port"`
-	BaseUrl string `yaml:"base_url"`
-	Oauth   Oauth  `yaml:"oauth"`
+	DbConn      string `yaml:"db_conn"`
+	Port        int    `yaml:"port"`
+	BaseUrl     string `yaml:"base_url"`
+	Oauth       Oauth  `yaml:"oauth"`
+	EmailSender string `yaml:"email_sender"`
+	EmailPass   string `yaml:"email_password"`
+	EmailServer string `yaml:"email_server"`
 }
 
 func (c Config) OauthLogoutRedirectUrl() string {
