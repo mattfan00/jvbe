@@ -16,7 +16,7 @@ func TestFilterEventsUserCanAccess(t *testing.T) {
 	defer db.Close()
 
 	groupService := group.NewService(db)
-	eventService := event.NewService(db, nil)
+	eventService := event.NewService(db, nil, "")
 	userService := user.NewService(db)
 
 	u1, err := userService.Create(user.CreateParams{})

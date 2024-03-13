@@ -16,7 +16,7 @@ var day = 24 * time.Hour
 
 func TestHandleResponse(t *testing.T) {
 	t.Run("NegativeAttendeesError", func(t *testing.T) {
-		err := event.NewService(nil, nil).HandleResponse(event.HandleResponseParams{
+		err := event.NewService(nil, nil, "").HandleResponse(event.HandleResponseParams{
 			AttendeeCount: -1,
 		})
 
@@ -26,7 +26,7 @@ func TestHandleResponse(t *testing.T) {
 	t.Run("IsPastError", func(t *testing.T) {
 		db := db.TestingConnect(t)
 		defer db.Close()
-		eventService := event.NewService(db, nil)
+		eventService := event.NewService(db, nil, "")
 		userService := user.NewService(db)
 
 		u, err := userService.Create(user.CreateParams{})
@@ -53,7 +53,7 @@ func TestGet(t *testing.T) {
 	t.Run("IsPast", func(t *testing.T) {
 		db := db.TestingConnect(t)
 		defer db.Close()
-		eventService := event.NewService(db, nil)
+		eventService := event.NewService(db, nil, "")
 		userService := user.NewService(db)
 
 		u, err := userService.Create(user.CreateParams{})
@@ -79,7 +79,7 @@ func TestList(t *testing.T) {
 	t.Run("Ok", func(t *testing.T) {
 		db := db.TestingConnect(t)
 		defer db.Close()
-		eventService := event.NewService(db, nil)
+		eventService := event.NewService(db, nil, "")
 
 		MustCreate(t, db, event.CreateParams{Name: "one", Start: time.Now()})
 		MustCreate(t, db, event.CreateParams{Name: "two", Start: time.Now().Add(day)})
@@ -92,7 +92,7 @@ func TestList(t *testing.T) {
 	t.Run("FilterUpcoming", func(t *testing.T) {
 		db := db.TestingConnect(t)
 		defer db.Close()
-		eventService := event.NewService(db, nil)
+		eventService := event.NewService(db, nil, "")
 
 		now := time.Now()
 		MustCreate(t, db, event.CreateParams{Name: "past", Start: now.Add(-day)})
@@ -107,7 +107,7 @@ func TestList(t *testing.T) {
 	t.Run("FilterPast", func(t *testing.T) {
 		db := db.TestingConnect(t)
 		defer db.Close()
-		eventService := event.NewService(db, nil)
+		eventService := event.NewService(db, nil, "")
 
 		now := time.Now()
 		MustCreate(t, db, event.CreateParams{Name: "past", Start: now.Add(-day)})
@@ -122,7 +122,7 @@ func TestList(t *testing.T) {
 
 func MustCreate(t testing.TB, db *db.DB, p event.CreateParams) string {
 	t.Helper()
-	id, err := event.NewService(db, nil).Create(p)
+	id, err := event.NewService(db, nil, "").Create(p)
 	if err != nil {
 		t.Fatal(err)
 	}

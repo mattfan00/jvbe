@@ -13,6 +13,7 @@ type Service interface {
 	Update(UpdateParams) error
 	Delete(string) error
 	HandleResponse(HandleResponseParams) error
+	sendMailToParticipants(string, string, []MemberDetails) error
 }
 
 type Event struct {

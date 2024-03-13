@@ -15,14 +15,16 @@ import (
 )
 
 type service struct {
-	db   *db.DB
-	smtp *mail.Dialer
+	db      *db.DB
+	smtp    *mail.Dialer
+	baseUrl string
 }
 
-func NewService(db *db.DB, smtp *mail.Dialer) *service {
+func NewService(db *db.DB, smtp *mail.Dialer, baseUrl string) *service {
 	return &service{
-		db:   db,
-		smtp: smtp,
+		db:      db,
+		smtp:    smtp,
+		baseUrl: baseUrl,
 	}
 }
 
@@ -131,6 +133,12 @@ type CreateParams struct {
 	CreatorId string
 }
 
+type MemberDetails struct {
+	Id           string
+	UserFullName string
+	UserEmail    string
+}
+
 func (s *service) Create(p CreateParams) (string, error) {
 	newId, err := gonanoid.New()
 	if err != nil {
@@ -157,7 +165,29 @@ func (s *service) Create(p CreateParams) (string, error) {
 	serviceLog("Create args %v", args)
 
 	_, err = s.db.Exec(stmt, args...)
-	return newId, err
+	if err != nil {
+		return "", err
+	}
+
+	stmt = `
+		SELECT u.id, u.full_name as user_full_name, u.email as user_email
+		FROM user_group_member AS ug 
+		INNER JOIN user AS u ON ug.user_id = u.id 
+		WHERE ug.group_id = ?;
+	`
+	args = []any{p.GroupId}
+	var members []MemberDetails
+	s.db.Select(&members, stmt, args...)
+
+	// send emails to group members
+	err = s.sendMailToParticipants(
+		fmt.Sprintf("New Event for JVBE: %s", p.Name),
+		fmt.Sprintf("A new event has been created located at %s. Sign up at %s", p.Location, s.baseUrl+newId),
+		members)
+	if err != nil {
+		fmt.Println("Error sending emails to group members: ", err)
+	}
+	return newId, nil
 }
 
 type UpdateParams struct {
@@ -292,9 +322,48 @@ func (s *service) HandleResponse(p HandleResponseParams) error {
 	}
 
 	// After transaction is committed, send emails to the users that got off waitlist
-	s.sendOffWaitlistMail(e, offWaitlist)
+	memberEmails := []MemberDetails{}
+	for _, r := range offWaitlist {
+		memberEmails = append(memberEmails, MemberDetails{
+			Id:           r.UserId,
+			UserFullName: r.UserFullName,
+			UserEmail:    r.UserEmail,
+		})
+	}
+
+	err = s.sendMailToParticipants(
+		fmt.Sprintf("You're going to JVBE Event: %s!", p.Event.Name),
+		fmt.Sprintf("You're off the waitlist and now listed for the event %s. See you there!", p.Event.Name),
+		memberEmails)
+	if err != nil {
+		fmt.Println("Error sending emails to users off waitlist: ", err)
+	}
 
 	return nil
+}
+
+func (s *service) sendMailToParticipants(subject string, body string, users []MemberDetails) error {
+	err := error(nil)
+	email := mail.NewMessage()
+	email.SetHeader("From", s.smtp.Username)
+	email.SetHeader("Subject", subject)
+
+	for _, r := range users {
+		if r.UserEmail != "" {
+			email.SetHeader("To", r.UserEmail)
+			email.SetBody("text/plain", fmt.Sprintf("Hi %s! <br /> ", r.UserFullName)+body)
+
+			// Send the email and continue to the next recipient if sending fails
+			log.Printf("Error sending email to %+v\n", r)
+			if err = s.smtp.DialAndSend(email); err != nil {
+				log.Printf("Error sending email to %+v: %v\n", r, err)
+				continue
+			}
+
+			log.Printf("Email sent successfully to %+v!\n", r)
+		}
+	}
+	return err
 }
 
 func get(tx *sqlx.Tx, id string) (Event, error) {
@@ -464,26 +533,4 @@ func updateWaitlist(tx *sqlx.Tx, reqs []EventResponse) error {
 	}
 
 	return nil
-}
-
-func (s *service) sendOffWaitlistMail(event Event, users []EventResponse) {
-	email := mail.NewMessage()
-	email.SetHeader("From", s.smtp.Username)
-	email.SetHeader("Subject", fmt.Sprintf("You're going to JVBE Event: %s!", event.Name))
-
-	for _, r := range users {
-		if r.UserEmail != "" {
-			email.SetHeader("To", r.UserEmail)
-			email.SetBody("text/plain", fmt.Sprintf("Hi %s! You've been removed off the waitlist for the event %s. See you there!", r.UserFullName, event.Name))
-
-			// Send the email and continue to the next recipient if sending fails
-			log.Printf("Error sending email to %+v: %+v\n", r, event)
-			if err := s.smtp.DialAndSend(email); err != nil {
-				log.Printf("Error sending email to %+v: %v\n", r, err)
-				continue
-			}
-
-			log.Printf("Email sent successfully to %+v!\n", r)
-		}
-	}
 }

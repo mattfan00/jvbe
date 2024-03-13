@@ -72,7 +72,7 @@ func (p *appProgram) run() error {
 
 	smtp := mail.NewDialer(conf.EmailServer, 587, conf.EmailSender, conf.EmailPass)
 	groupService := group.NewService(db)
-	eventService := event.NewService(db, smtp)
+	eventService := event.NewService(db, smtp, conf.BaseUrl)
 	userService := user.NewService(db)
 
 	authService, err := auth.NewService(conf)
@@ -93,6 +93,8 @@ func (p *appProgram) run() error {
 
 	log.Printf("listening on port %d", conf.Port)
 	http.ListenAndServe(fmt.Sprintf(":%d", conf.Port), app.Routes())
+
+	//TODO: cron job to send email reminders
 
 	return nil
 }
