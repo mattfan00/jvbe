@@ -1,16 +1,15 @@
 package app
 
 import (
-	"bytes"
 	"net/http"
 
+	"github.com/mattfan00/jvbe/renderer"
 	"github.com/mattfan00/jvbe/auditlog"
 	"github.com/mattfan00/jvbe/auth"
 	"github.com/mattfan00/jvbe/config"
 	"github.com/mattfan00/jvbe/event"
 	"github.com/mattfan00/jvbe/group"
 	"github.com/mattfan00/jvbe/logger"
-	"github.com/mattfan00/jvbe/template"
 	"github.com/mattfan00/jvbe/user"
 
 	"github.com/alexedwards/scs/v2"
@@ -24,10 +23,10 @@ type App struct {
 	groupService    group.Service
 	auditlogService auditlog.Service
 
-	conf      *config.Config
-	session   *scs.SessionManager
-	templates template.TemplateMap
-	log       logger.Logger
+	conf     *config.Config
+	session  *scs.SessionManager
+	log      logger.Logger
+	renderer *renderer.Renderer
 }
 
 func New(
@@ -39,8 +38,8 @@ func New(
 
 	conf *config.Config,
 	session *scs.SessionManager,
-	templates template.TemplateMap,
 	log logger.Logger,
+	renderer *renderer.Renderer,
 ) *App {
 	return &App{
 		eventService:    eventService,
@@ -49,10 +48,10 @@ func New(
 		groupService:    groupService,
 		auditlogService: auditlogService,
 
-		conf:      conf,
-		session:   session,
-		templates: templates,
-		log:       log,
+		conf:     conf,
+		session:  session,
+		log:      log,
+		renderer: renderer,
 	}
 }
 
@@ -66,21 +65,25 @@ func (a *App) renderTemplate(
 	templateName string,
 	data any,
 ) {
-	t, ok := a.templates[template]
-	if !ok {
-		http.Error(w, "template not found", http.StatusInternalServerError)
-		return
-	}
+	/*
+		t, ok := a.templates[template]
+		if !ok {
+			http.Error(w, "template not found", http.StatusInternalServerError)
+			return
+		}
 
-	buf := new(bytes.Buffer)
+		buf := new(bytes.Buffer)
 
-	err := t.ExecuteTemplate(buf, templateName, data)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
+		err := t.ExecuteTemplate(buf, templateName, data)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 
-	buf.WriteTo(w)
+		buf.WriteTo(w)
+	*/
+
+	w.Write([]byte("in progress"))
 }
 
 func (a *App) renderPage(

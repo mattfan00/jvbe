@@ -8,6 +8,7 @@ import (
 	"time"
 
 	appPkg "github.com/mattfan00/jvbe/app"
+	"github.com/mattfan00/jvbe/renderer"
 	"github.com/mattfan00/jvbe/auditlog"
 	"github.com/mattfan00/jvbe/auth"
 	"github.com/mattfan00/jvbe/config"
@@ -15,7 +16,6 @@ import (
 	"github.com/mattfan00/jvbe/event"
 	"github.com/mattfan00/jvbe/group"
 	"github.com/mattfan00/jvbe/logger"
-	"github.com/mattfan00/jvbe/template"
 	"github.com/mattfan00/jvbe/user"
 
 	"github.com/alexedwards/scs/sqlite3store"
@@ -62,10 +62,7 @@ func (p *appProgram) run() error {
 		return err
 	}
 
-	templates, err := template.Generate()
-	if err != nil {
-		return err
-	}
+	renderer := renderer.New(log)
 
 	gob.Register(user.SessionUser{}) // needed for scs library
 	session := scs.New()
@@ -94,12 +91,12 @@ func (p *appProgram) run() error {
 		userService,
 		authService,
 		groupService,
-        auditlogService,
+		auditlogService,
 
 		conf,
 		session,
-		templates,
 		log,
+		renderer,
 	)
 
 	log.Printf("listening on port %d", conf.Port)

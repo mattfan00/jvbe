@@ -43,7 +43,16 @@ func (a *App) renderHome() http.HandlerFunc {
 			return
 		}
 
-		a.renderPage(w, "home.html", data{
+		/*
+			a.renderPage(w, "home.html", data{
+				BaseData: BaseData{
+					User: u,
+				},
+				CurrEvents: currEvents.Events,
+				PastEvents: pastEvents.Events,
+			})
+		*/
+		a.renderer.RenderHomePage(w, data{
 			BaseData: BaseData{
 				User: u,
 			},
@@ -176,8 +185,8 @@ func (a *App) updateEvent() http.HandlerFunc {
 		}
 
 		if err := a.eventService.Update(event.UpdateParams{
-			Id:   id,
-			Name: req.Name,
+			Id:       id,
+			Name:     req.Name,
 			Capacity: req.Capacity,
 			Start:    start,
 			Location: req.Location,
