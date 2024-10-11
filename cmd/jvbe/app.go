@@ -8,7 +8,6 @@ import (
 	"time"
 
 	appPkg "github.com/mattfan00/jvbe/app"
-	"github.com/mattfan00/jvbe/renderer"
 	"github.com/mattfan00/jvbe/auditlog"
 	"github.com/mattfan00/jvbe/auth"
 	"github.com/mattfan00/jvbe/config"
@@ -62,8 +61,6 @@ func (p *appProgram) run() error {
 		return err
 	}
 
-	renderer := renderer.New(log)
-
 	gob.Register(user.SessionUser{}) // needed for scs library
 	session := scs.New()
 	session.Lifetime = 30 * 24 * time.Hour // 30 days
@@ -96,7 +93,6 @@ func (p *appProgram) run() error {
 		conf,
 		session,
 		log,
-		renderer,
 	)
 
 	log.Printf("listening on port %d", conf.Port)

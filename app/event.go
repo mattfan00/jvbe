@@ -10,7 +10,6 @@ import (
 	"github.com/gorilla/schema"
 	"github.com/mattfan00/jvbe/event"
 	"github.com/mattfan00/jvbe/group"
-	"github.com/mattfan00/jvbe/template"
 )
 
 func (a *App) renderHome() http.HandlerFunc {
@@ -43,16 +42,7 @@ func (a *App) renderHome() http.HandlerFunc {
 			return
 		}
 
-		/*
-			a.renderPage(w, "home.html", data{
-				BaseData: BaseData{
-					User: u,
-				},
-				CurrEvents: currEvents.Events,
-				PastEvents: pastEvents.Events,
-			})
-		*/
-		a.renderer.RenderHomePage(w, data{
+		a.renderPage(w, "home.html", data{
 			BaseData: BaseData{
 				User: u,
 			},
@@ -299,7 +289,7 @@ func (a *App) respondEvent() http.HandlerFunc {
 }
 
 func timeFromForm(t string, offset int) (time.Time, error) {
-	r, err := time.Parse(template.FormTimeFormat, t)
+	r, err := time.Parse("2006-01-02T15:04", t)
 	if err != nil {
 		return time.Time{}, err
 	}
