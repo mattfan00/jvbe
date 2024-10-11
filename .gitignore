@@ -1,6 +1,6 @@
 .DS_Store
 tmp
-ui/public/**/*.css*
-ui/node_modules/
 config.yaml
 test.db
+
+app/ui/node_modules/
