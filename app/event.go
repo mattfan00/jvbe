@@ -10,7 +10,6 @@ import (
 	"github.com/gorilla/schema"
 	"github.com/mattfan00/jvbe/event"
 	"github.com/mattfan00/jvbe/group"
-	"github.com/mattfan00/jvbe/template"
 )
 
 func (a *App) renderHome() http.HandlerFunc {
@@ -176,8 +175,8 @@ func (a *App) updateEvent() http.HandlerFunc {
 		}
 
 		if err := a.eventService.Update(event.UpdateParams{
-			Id:   id,
-			Name: req.Name,
+			Id:       id,
+			Name:     req.Name,
 			Capacity: req.Capacity,
 			Start:    start,
 			Location: req.Location,
@@ -290,7 +289,7 @@ func (a *App) respondEvent() http.HandlerFunc {
 }
 
 func timeFromForm(t string, offset int) (time.Time, error) {
-	r, err := time.Parse(template.FormTimeFormat, t)
+	r, err := time.Parse("2006-01-02T15:04", t)
 	if err != nil {
 		return time.Time{}, err
 	}

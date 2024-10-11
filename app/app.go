@@ -1,16 +1,15 @@
 package app
 
 import (
-	"bytes"
 	"net/http"
 
+	"github.com/mattfan00/jvbe/app/template"
 	"github.com/mattfan00/jvbe/auditlog"
 	"github.com/mattfan00/jvbe/auth"
 	"github.com/mattfan00/jvbe/config"
 	"github.com/mattfan00/jvbe/event"
 	"github.com/mattfan00/jvbe/group"
 	"github.com/mattfan00/jvbe/logger"
-	"github.com/mattfan00/jvbe/template"
 	"github.com/mattfan00/jvbe/user"
 
 	"github.com/alexedwards/scs/v2"
@@ -24,10 +23,10 @@ type App struct {
 	groupService    group.Service
 	auditlogService auditlog.Service
 
-	conf      *config.Config
-	session   *scs.SessionManager
-	templates template.TemplateMap
-	log       logger.Logger
+	conf            *config.Config
+	session         *scs.SessionManager
+	log             logger.Logger
+	templateManager *template.Manager
 }
 
 func New(
@@ -39,9 +38,10 @@ func New(
 
 	conf *config.Config,
 	session *scs.SessionManager,
-	templates template.TemplateMap,
 	log logger.Logger,
 ) *App {
+	templateManager := template.NewManager(log)
+
 	return &App{
 		eventService:    eventService,
 		userService:     userService,
@@ -49,10 +49,10 @@ func New(
 		groupService:    groupService,
 		auditlogService: auditlogService,
 
-		conf:      conf,
-		session:   session,
-		templates: templates,
-		log:       log,
+		conf:            conf,
+		session:         session,
+		log:             log,
+		templateManager: templateManager,
 	}
 }
 
@@ -60,35 +60,26 @@ type BaseData struct {
 	User user.SessionUser
 }
 
-func (a *App) renderTemplate(
-	w http.ResponseWriter,
-	template string,
-	templateName string,
-	data any,
-) {
-	t, ok := a.templates[template]
-	if !ok {
-		http.Error(w, "template not found", http.StatusInternalServerError)
-		return
-	}
-
-	buf := new(bytes.Buffer)
-
-	err := t.ExecuteTemplate(buf, templateName, data)
+func (a *App) renderPage(w http.ResponseWriter, pageFile string, data any) {
+	files := []string{"base.html", "header.html"}
+	files = append(files, pageFile)
+	t, err := a.templateManager.Parse(pageFile, files)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	buf.WriteTo(w)
+	t.Execute(w, data)
 }
 
-func (a *App) renderPage(
-	w http.ResponseWriter,
-	template string,
-	data any,
-) {
-	a.renderTemplate(w, template, "base", data)
+func (a *App) renderTemplate(w http.ResponseWriter, templateFile string, data any) {
+	t, err := a.templateManager.Parse(templateFile, []string{templateFile})
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	t.Execute(w, data)
 }
 
 func (a *App) renderErrorNotif(
@@ -99,7 +90,7 @@ func (a *App) renderErrorNotif(
 	a.log.Errorf(err.Error())
 	w.Header().Add("HX-Reswap", "none") // so that UI does not swap rest of the blank template
 	w.WriteHeader(status)
-	a.renderTemplate(w, "error-notif.html", "error", map[string]any{
+	a.renderTemplate(w, "error-notif.html", map[string]any{
 		"Error": err,
 	})
 }
