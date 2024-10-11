@@ -1,6 +1,8 @@
 package app
 
 import (
+	"embed"
+	"io/fs"
 	"math"
 	"net/http"
 	"strconv"
@@ -12,11 +14,14 @@ import (
 	"github.com/mattfan00/jvbe/auditlog"
 )
 
+//go:embed ui/public
+var publicFS embed.FS
+
 func (a *App) Routes() http.Handler {
 	r := chi.NewRouter()
 
-	publicFileServer := http.FileServer(http.Dir("./ui/public"))
-	r.Handle("/public/*", http.StripPrefix("/public/", publicFileServer))
+	fs, _ := fs.Sub(publicFS, "ui/public") // this path should match go:embed path
+	r.Handle("/public/*", http.StripPrefix("/public/", http.FileServer(http.FS(fs))))
 
 	r.Get("/privacy", a.renderPrivacy())
 
